@@ -1028,14 +1028,14 @@ static int exception_count = 0;
 
 - (NSString *)description
 {
-	return [@{@"filePath": self.filePath,
-		@"fileName": self.fileName,
-		@"fileAttributes": self.fileAttributes,
-		@"creationDate": self.creationDate,
-		@"modificationDate": self.modificationDate,
-		@"fileSize": @(self.fileSize),
-		@"age": @(self.age),
-		@"isArchived": @(self.isArchived)} description];
+	return [@{@"filePath": self.filePath ?: @"",
+              @"fileName": self.fileName ?: @"",
+              @"fileAttributes": self.fileAttributes ?: @"",
+              @"creationDate": self.creationDate ?: @"",
+              @"modificationDate": self.modificationDate ?: @"",
+              @"fileSize": @(self.fileSize),
+              @"age": @(self.age),
+              @"isArchived": @(self.isArchived)} description];
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
