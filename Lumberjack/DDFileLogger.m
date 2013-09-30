@@ -943,7 +943,12 @@ static int exception_count = 0;
 {
 	if (fileAttributes == nil)
 	{
-		fileAttributes = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:nil];
+        NSError *error;
+		fileAttributes = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:&error];
+
+        if (error) {
+            NSLogVerbose(@"Failed to get fileAttributes: %@", error);
+        }
 	}
 	return fileAttributes;
 }
@@ -1015,7 +1020,13 @@ static int exception_count = 0;
 {
 	if (fileSize == 0)
 	{
-		fileSize = [[[self fileAttributes] objectForKey:NSFileSize] unsignedLongLongValue];
+        NSDictionary *attributes = [self fileAttributes];
+        if (attributes) {
+            NSNumber *size = [attributes objectForKey:NSFileSize];
+            if (size) {
+                fileSize = [size unsignedLongLongValue];
+            }
+        }
 	}
 	
 	return fileSize;
