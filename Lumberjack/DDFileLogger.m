@@ -108,10 +108,10 @@
 	if ([keyPath isEqualToString:@"maximumNumberOfLogFiles"])
 	{
 		NSLogInfo(@"DDFileLogManagerDefault: Responding to configuration change: maximumNumberOfLogFiles");
-		
+		__weak DDLogFileManagerDefault *weak_self = self;
 		dispatch_async([DDLog loggingQueue], ^{ @autoreleasepool {
 			
-			[self deleteOldLogFiles];
+			[weak_self deleteOldLogFiles];
 		}});
 	}
 }
@@ -527,10 +527,11 @@
 
 - (void)setMaximumFileSize:(unsigned long long)newMaximumFileSize
 {
+    __weak DDFileLogger *weak_self = self;
 	dispatch_block_t block = ^{ @autoreleasepool {
 		
 		maximumFileSize = newMaximumFileSize;
-		[self maybeRollLogFileDueToSize];
+		[weak_self maybeRollLogFileDueToSize];
 		
 	}};
 	
@@ -586,10 +587,11 @@
 
 - (void)setRollingFrequency:(NSTimeInterval)newRollingFrequency
 {
+    __weak DDFileLogger *weak_self = self;
 	dispatch_block_t block = ^{ @autoreleasepool {
 		
 		rollingFrequency = newRollingFrequency;
-		[self maybeRollLogFileDueToAge];
+		[weak_self maybeRollLogFileDueToAge];
 	}};
 	
 	// The design of this method is taken from the DDAbstractLogger implementation.
@@ -642,10 +644,10 @@
 	NSLogVerbose(@"DDFileLogger: logFileRollingDate : %@", logFileRollingDate);
 	
 	rollingTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, loggerQueue);
-	
+	__weak DDFileLogger *weak_self = self;
 	dispatch_source_set_event_handler(rollingTimer, ^{ @autoreleasepool {
 		
-		[self maybeRollLogFileDueToAge];
+		[weak_self maybeRollLogFileDueToAge];
 		
 	}});
 	
@@ -667,10 +669,10 @@
 {
 	// This method is public.
 	// We need to execute the rolling on our logging thread/queue.
-	
+	__weak DDFileLogger *weak_self = self;
 	dispatch_block_t block = ^{ @autoreleasepool {
 		
-		[self rollLogFileNow];
+		[weak_self rollLogFileNow];
 	}};
 	
 	// The design of this method is taken from the DDAbstractLogger implementation.
