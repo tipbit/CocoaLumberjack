@@ -1375,7 +1375,10 @@ static int exception_count = 0;
 
 - (BOOL)hasExtendedAttributeWithName:(NSString *)attrName
 {
-    const char *path = [filePath UTF8String];
+    // Copy filePath in case it is changed (by renameFile) underneath us.
+    NSString* filePath_copy = [filePath copy];
+
+    const char *path = [filePath_copy fileSystemRepresentation];
     const char *name = [attrName UTF8String];
     
     ssize_t result = getxattr(path, name, NULL, 0, 0, 0);
@@ -1385,7 +1388,10 @@ static int exception_count = 0;
 
 - (void)addExtendedAttributeWithName:(NSString *)attrName
 {
-    const char *path = [filePath UTF8String];
+    // Copy filePath in case it is changed (by renameFile) underneath us.
+    NSString* filePath_copy = [filePath copy];
+
+    const char *path = [filePath_copy fileSystemRepresentation];
     const char *name = [attrName UTF8String];
     
     int result = setxattr(path, name, NULL, 0, 0, 0);
@@ -1398,7 +1404,10 @@ static int exception_count = 0;
 
 - (void)removeExtendedAttributeWithName:(NSString *)attrName
 {
-    const char *path = [filePath UTF8String];
+    // Copy filePath in case it is changed (by renameFile) underneath us.
+    NSString* filePath_copy = [filePath copy];
+
+    const char *path = [filePath_copy fileSystemRepresentation];
     const char *name = [attrName UTF8String];
     
     int result = removexattr(path, name, 0);
