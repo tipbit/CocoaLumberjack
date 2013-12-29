@@ -305,6 +305,10 @@ typedef enum {
 - (void)renameFile:(NSString *)newFileName;
 
 #if TARGET_IPHONE_SIMULATOR
+#define DDFILELOGGER_USE_SIMULATED_XATTRS 1
+#else
+#define DDFILELOGGER_USE_SIMULATED_XATTRS 0
+#endif
 
 // So here's the situation.
 // Extended attributes are perfect for what we're trying to do here (marking files as archived).
@@ -324,6 +328,8 @@ typedef enum {
 // 
 // For example:
 // log-ABC123.txt -> log-ABC123.archived.txt
+
+#if DDFILELOGGER_USE_SIMULATED_XATTRS
 
 - (BOOL)hasExtensionAttributeWithName:(NSString *)attrName;
 

@@ -1033,7 +1033,7 @@ static int exception_count = 0;
 #pragma mark -
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if TARGET_IPHONE_SIMULATOR
+#if DDFILELOGGER_USE_SIMULATED_XATTRS
   #define XATTR_ARCHIVED_NAME  @"archived"
 #else
   #define XATTR_ARCHIVED_NAME  @"lumberjack.log.archived"
@@ -1148,7 +1148,7 @@ static int exception_count = 0;
 - (BOOL)isArchived
 {
     
-#if TARGET_IPHONE_SIMULATOR
+#if DDFILELOGGER_USE_SIMULATED_XATTRS
     
     // Extended attributes don't work properly on the simulator.
     // So we have to use a less attractive alternative.
@@ -1166,7 +1166,7 @@ static int exception_count = 0;
 - (void)setIsArchived:(BOOL)flag
 {
     
-#if TARGET_IPHONE_SIMULATOR
+#if DDFILELOGGER_USE_SIMULATED_XATTRS
     
     // Extended attributes don't work properly on the simulator.
     // So we have to use a less attractive alternative.
@@ -1227,7 +1227,7 @@ static int exception_count = 0;
 #pragma mark Attribute Management
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if TARGET_IPHONE_SIMULATOR
+#if DDFILELOGGER_USE_SIMULATED_XATTRS
 
 // Extended attributes don't work properly on the simulator.
 // So we have to use a less attractive alternative.
