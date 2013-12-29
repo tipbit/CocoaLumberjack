@@ -266,8 +266,13 @@ BOOL doesAppRunInBackground(void);
 - (NSArray *)unsortedLogFilePaths
 {
     NSString *logsDirectory = [self logsDirectory];
-    NSArray *fileNames = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:logsDirectory error:nil];
-    
+    NSError* err = nil;
+    NSArray *fileNames = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:logsDirectory error:&err];
+    if (fileNames == nil) {
+        NSLogError(@"DDFileLogManagerDefault: Error listing contents of %@: %@", logsDirectory, err);
+        return @[];
+    }
+
     NSMutableArray *unsortedLogFilePaths = [NSMutableArray arrayWithCapacity:[fileNames count]];
     
     for (NSString *fileName in fileNames)
