@@ -1403,7 +1403,7 @@ static int exception_count = 0;
     
     if (result < 0)
     {
-        NSLogError(@"DDLogFileInfo: setxattr(%@, %@): %s", attrName, self.fileName, strerror(errno));
+        NSLogError(@"DDLogFileInfo: setxattr(%s, %s): %s", path, name, strerror(errno));
     }
 }
 
@@ -1419,7 +1419,7 @@ static int exception_count = 0;
     
     if (result < 0 && errno != ENOATTR)
     {
-        NSLogError(@"DDLogFileInfo: removexattr(%@, %@): %s", attrName, self.fileName, strerror(errno));
+        NSLogError(@"DDLogFileInfo: removexattr(%s, %s): %s", path, name, strerror(errno));
     }
 }
 
