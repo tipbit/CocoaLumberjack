@@ -252,6 +252,7 @@
     
     BOOL done = YES;
     BOOL error = NO;
+    NSError* streamError = nil;
     do
     {
         @autoreleasepool {
@@ -337,6 +338,7 @@
             if (writeLength < 0)
             {
                 error = YES;
+                streamError = [outputStream streamError];
             }
             else
             {
@@ -391,8 +393,12 @@
     {
         // Remove output file.
         // Our compression attempt failed.
-        
-        [[NSFileManager defaultManager] removeItemAtPath:tempOutputFilePath error:nil];
+
+        NSLogError(@"Compression of %@ failed: %@", inputFilePath, streamError);
+        NSError* err = nil;
+        BOOL ok = [[NSFileManager defaultManager] removeItemAtPath:tempOutputFilePath error:&err];
+        if (!ok)
+            NSLogError(@"Failed to clean up %@ after failed compression: %@", tempOutputFilePath, err);
         
         // Report failure to class via logging thread/queue
         
@@ -406,7 +412,10 @@
         // Remove original input file.
         // It will be replaced with the new compressed version.
         
-        [[NSFileManager defaultManager] removeItemAtPath:inputFilePath error:nil];
+        NSError* err = nil;
+        BOOL ok = [[NSFileManager defaultManager] removeItemAtPath:inputFilePath error:&err];
+        if (!ok)
+            NSLogWarn(@"Warning: failed to remove original file %@ after compression: %@", inputFilePath, err);
         
         // Mark the compressed file as archived,
         // and then move it into its final destination.
