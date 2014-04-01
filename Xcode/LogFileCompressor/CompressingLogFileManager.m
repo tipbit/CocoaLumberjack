@@ -251,8 +251,7 @@
     NSUInteger inputDataSize = 0;
     
     BOOL done = YES;
-    BOOL error = NO;
-    NSError* streamError = nil;
+    NSError* error = nil;
     do
     {
         @autoreleasepool {
@@ -337,8 +336,7 @@
             
             if (writeLength < 0)
             {
-                error = YES;
-                streamError = [outputStream streamError];
+                error = [outputStream streamError];
             }
             else
             {
@@ -375,7 +373,7 @@
         
         } // end @autoreleasepool
         
-    } while (!done && !error);
+    } while (!done && error == nil);
     
     // STEP 9
     
@@ -394,11 +392,11 @@
         // Remove output file.
         // Our compression attempt failed.
 
-        NSLogError(@"Compression of %@ failed: %@", inputFilePath, streamError);
-        NSError* err = nil;
-        BOOL ok = [[NSFileManager defaultManager] removeItemAtPath:tempOutputFilePath error:&err];
+        NSLogError(@"Compression of %@ failed: %@", inputFilePath, error);
+        error = nil;
+        BOOL ok = [[NSFileManager defaultManager] removeItemAtPath:tempOutputFilePath error:&error];
         if (!ok)
-            NSLogError(@"Failed to clean up %@ after failed compression: %@", tempOutputFilePath, err);
+            NSLogError(@"Failed to clean up %@ after failed compression: %@", tempOutputFilePath, error);
         
         // Report failure to class via logging thread/queue
         
@@ -412,11 +410,11 @@
     {
         // Remove original input file.
         // It will be replaced with the new compressed version.
-        
-        NSError* err = nil;
-        BOOL ok = [[NSFileManager defaultManager] removeItemAtPath:inputFilePath error:&err];
+
+        error = nil;
+        BOOL ok = [[NSFileManager defaultManager] removeItemAtPath:inputFilePath error:&error];
         if (!ok)
-            NSLogWarn(@"Warning: failed to remove original file %@ after compression: %@", inputFilePath, err);
+            NSLogWarn(@"Warning: failed to remove original file %@ after compression: %@", inputFilePath, error);
         
         // Mark the compressed file as archived,
         // and then move it into its final destination.
