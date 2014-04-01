@@ -65,15 +65,14 @@
 // Some simple defines to make life easier on ourself
 
 #if TARGET_OS_IPHONE
-  #define MakeColor(r, g, b) [UIColor colorWithRed:(r/255.0f) green:(g/255.0f) blue:(b/255.0f) alpha:1.0f]
-#else
-  #define MakeColor(r, g, b) [NSColor colorWithCalibratedRed:(r/255.0f) green:(g/255.0f) blue:(b/255.0f) alpha:1.0f]
-#endif
-
-#if TARGET_OS_IPHONE
   #define OSColor UIColor
-#else
+  #define MakeColor(r, g, b) [UIColor colorWithRed:(r/255.0f) green:(g/255.0f) blue:(b/255.0f) alpha:1.0f]
+#elif !defined (COCOAPODS_POD_AVAILABLE_CocoaLumberjack_CLI)
   #define OSColor NSColor
+  #define MakeColor(r, g, b) [NSColor colorWithCalibratedRed:(r/255.0f) green:(g/255.0f) blue:(b/255.0f) alpha:1.0f]
+#else
+  #define OSColor CLIColor
+  #define MakeColor(r, g, b) [CLIColor colorWithCalibratedRed:(r/255.0f) green:(g/255.0f) blue:(b/255.0f) alpha:1.0f]
 #endif
 
 // If running in a shell, not all RGB colors will be supported.
@@ -702,13 +701,19 @@ static DDTTYLogger *sharedInstance;
         CGColorSpaceRelease(rgbColorSpace);
     }
     
-    #else
+    #elif !defined (COCOAPODS_POD_AVAILABLE_CocoaLumberjack_CLI)
     
-    // Mac OS X
+    // OS X with AppKit
     
     NSColor *safeColor = [color colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
     
     [safeColor getRed:rPtr green:gPtr blue:bPtr alpha:NULL];
+    
+    #else
+    
+    // OS X without AppKit
+    
+    [color getRed:rPtr green:gPtr blue:bPtr alpha:NULL];
     
     #endif
 }
@@ -774,9 +779,20 @@ static DDTTYLogger *sharedInstance;
     if (!initialized)
     {
         initialized = YES;
-        
+
+        // Xcode does NOT natively support colors in the Xcode debugging console.
+        // You'll need to install the XcodeColors plugin to see colors in the Xcode console.
+        //
+        // PS - Please read the header file before diving into the source code.
+
+        char *xcode_colors = getenv("XcodeColors");
         char *term = getenv("TERM");
-        if (term)
+
+        if (xcode_colors && (strcmp(xcode_colors, "YES") == 0))
+        {
+            isaXcodeColorTTY = YES;
+        }
+        else if (term)
         {
             if (strcasestr(term, "color") != NULL)
             {
@@ -789,20 +805,7 @@ static DDTTYLogger *sharedInstance;
                     [self initialize_colors_16];
             }
         }
-        else
-        {
-            // Xcode does NOT natively support colors in the Xcode debugging console.
-            // You'll need to install the XcodeColors plugin to see colors in the Xcode console.
-            // 
-            // PS - Please read the header file before diving into the source code.
-            
-            char *xcode_colors = getenv("XcodeColors");
-            if (xcode_colors && (strcmp(xcode_colors, "YES") == 0))
-            {
-                isaXcodeColorTTY = YES;
-            }
-        }
-        
+
         NSLogInfo(@"DDTTYLogger: isaColorTTY = %@", (isaColorTTY ? @"YES" : @"NO"));
         NSLogInfo(@"DDTTYLogger: isaColor256TTY: %@", (isaColor256TTY ? @"YES" : @"NO"));
         NSLogInfo(@"DDTTYLogger: isaXcodeColorTTY: %@", (isaXcodeColorTTY ? @"YES" : @"NO"));
@@ -840,11 +843,16 @@ static DDTTYLogger *sharedInstance;
         appName = [[NSProcessInfo processInfo] processName];
         
         appLen = [appName lengthOfBytesUsingEncoding:NSUTF8StringEncoding];
+        if (appLen == 0) {
+            appName = @"<UnnamedApp>";
+            appLen = [appName lengthOfBytesUsingEncoding:NSUTF8StringEncoding];
+        }
         app = (char *)malloc(appLen + 1);
         if (app == NULL) return nil;
         
-        [appName getCString:app maxLength:(appLen+1) encoding:NSUTF8StringEncoding];
-        
+        BOOL processedAppName = [appName getCString:app maxLength:(appLen+1) encoding:NSUTF8StringEncoding];
+        if (NO == processedAppName) return nil;
+
         // Initialize 'pid' variable (char *)
         
         processID = [NSString stringWithFormat:@"%i", (int)getpid()];

@@ -232,31 +232,64 @@ BOOL doesAppRunInBackground(void);
     return _logsDirectory;
 }
 
+/**
+ * Default log file name is "<bundle identifier> <date> <time>.log".
+ * Example: MobileSafari 2013-12-03 17-14.log
+ *
+ * You can change it by overriding newLogFileName and isLogFile: methods.
+**/
 - (BOOL)isLogFile:(NSString *)fileName
 {
-    // A log file has a name like "log-<uuid>.txt", where <uuid> is a HEX-string of 6 characters.
-    // 
-    // For example: log-DFFE99.txt
-    
-    BOOL hasProperPrefix = [fileName hasPrefix:@"log-"];
-    
-    BOOL hasProperLength = [fileName length] >= 10;
-    
-    
-    if (hasProperPrefix && hasProperLength)
+    NSString *appName = [self applicationName];
+
+    BOOL hasProperPrefix = [fileName hasPrefix:appName];
+    BOOL hasProperSuffix = [fileName hasSuffix:@".log"];
+    BOOL hasProperDate = NO;
+
+    if (hasProperPrefix && hasProperSuffix)
     {
-        NSCharacterSet *hexSet = [NSCharacterSet characterSetWithCharactersInString:@"0123456789ABCDEF"];
-        
-        NSString *hex = [fileName substringWithRange:NSMakeRange(4, 6)];
-        NSString *nohex = [hex stringByTrimmingCharactersInSet:hexSet];
-        
-        if ([nohex length] == 0)
+        NSUInteger lengthOfMiddle = fileName.length - appName.length - @".log".length;
+
+        // Date string should have at least 16 characters - " 2013-12-03 17-14"
+        if (lengthOfMiddle >= 17)
         {
-            return YES;
+            NSRange range = NSMakeRange(appName.length, lengthOfMiddle);
+
+            NSString *middle = [fileName substringWithRange:range];
+            NSArray *components = [middle componentsSeparatedByString:@" "];
+
+            // When creating logfile if there is existing file with the same name, we append attemp number at the end.
+            // Thats why here we can have three or four components. For details see createNewLogFile method.
+            //
+            // Components:
+            //     "", "2013-12-03", "17-14"
+            // or
+            //     "", "2013-12-03", "17-14", "1"
+            if (components.count == 3 || components.count == 4)
+            {
+                NSString *dateString = [NSString stringWithFormat:@"%@ %@", components[1], components[2]];
+                NSDateFormatter *dateFormatter = [self logFileDateFormatter];
+
+                NSDate *date = [dateFormatter dateFromString:dateString];
+
+                if (date)
+                {
+                    hasProperDate = YES;
+                }
+            }
         }
     }
-    
-    return NO;
+
+    return (hasProperPrefix && hasProperDate && hasProperSuffix);
+}
+
+- (NSDateFormatter *)logFileDateFormatter
+{
+    NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
+    [dateFormatter setDateFormat:@"yyyy'-'MM'-'dd' 'HH'-'mm'"];
+    [dateFormatter setTimeZone:[NSTimeZone timeZoneForSecondsFromGMT:0]];
+
+    return dateFormatter;
 }
 
 /**
@@ -279,7 +312,18 @@ BOOL doesAppRunInBackground(void);
     {
         // Filter out any files that aren't log files. (Just for extra safety)
         
+    #if TARGET_IPHONE_SIMULATOR
+        // In case of iPhone simulator there can be 'archived' extension. isLogFile:
+        // method knows nothing about it. Thus removing it for this method.
+        //
+        // See full explanation in the header file.
+        NSString *theFileName = [fileName stringByReplacingOccurrencesOfString:@".archived"
+                                                                    withString:@""];
+
+        if ([self isLogFile:theFileName])
+    #else
         if ([self isLogFile:fileName])
+    #endif
         {
             NSString *filePath = [logsDirectory stringByAppendingPathComponent:fileName];
             
@@ -382,48 +426,19 @@ BOOL doesAppRunInBackground(void);
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Generates log file name with "log-UUID.txt" or "log-TIMESTAMP.txt" format, depending on convention parameter.
- * UUID has six characters, all in the hexadecimal set [0123456789ABCDEF].
- * TIMESTAMP is UTC time in RFC 3339 format.
+ * Generates log file name with default format "<bundle identifier> <date> <time>.log"
+ * Example: MobileSafari 2013-12-03 17-14.log
+ *
+ * You can change it by overriding newLogFileName and isLogFile: methods.
 **/
-- (NSString *)generateLogFileNameWithConvention:(DDLogFileNamingConvention)convention attempt:(NSUInteger)attempt
+- (NSString *)newLogFileName
 {
-    NSString *uniquePart = nil;
-    
-    switch(convention) {
-        case DDLogFileNamingConventionUUID: {
-            CFUUIDRef uuid = CFUUIDCreate(NULL);
-            
-            CFStringRef fullStr = CFUUIDCreateString(NULL, uuid);
-            uniquePart = (__bridge_transfer NSString *)CFStringCreateWithSubstring(NULL, fullStr, CFRangeMake(0, 6));
-            
-            CFRelease(fullStr);
-            CFRelease(uuid);
-            
-            break;
-        }
+    NSString *appName = [self applicationName];
 
-        case DDLogFileNamingConventionTimestamp: {
-            NSDate *now = [NSDate date];
-            
-            // RFC 3339 format, UTC time
-            NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
-            [dateFormatter setDateFormat:@"yyyy'-'MM'-'dd'T'HH':'mm':'ss'Z'"];
-            [dateFormatter setTimeZone:[NSTimeZone timeZoneForSecondsFromGMT:0]];
-            
-            NSString *formattedDate = [dateFormatter stringFromDate:now];
-            
-            if (attempt == 1) {
-                uniquePart = formattedDate;
-            } else {
-                uniquePart = [NSString stringWithFormat:@"%@ %lu", formattedDate, (unsigned long)attempt];
-            }
-            
-            break;
-        }
-    }
-    
-    return [NSString stringWithFormat:@"log-%@.txt", uniquePart];
+    NSDateFormatter *dateFormatter = [self logFileDateFormatter];
+    NSString *formattedDate = [dateFormatter stringFromDate:[NSDate date]];
+
+    return [NSString stringWithFormat:@"%@ %@.log", appName, formattedDate];
 }
 
 /**
@@ -431,19 +446,29 @@ BOOL doesAppRunInBackground(void);
 **/
 - (NSString *)createNewLogFile
 {
-    // Generate a random log file name, and create the file (if there isn't a collision)
-    
+    NSString *fileName = [self newLogFileName];
     NSString *logsDirectory = [self logsDirectory];
+
     NSUInteger attempt = 1;
     do
     {
-        NSString *fileName = [self generateLogFileNameWithConvention:self.fileNamingConvention attempt:attempt];
-        
-        NSString *filePath = [logsDirectory stringByAppendingPathComponent:fileName];
-        
+        NSString *actualFileName = fileName;
+
+        if (attempt > 1) {
+            NSString *extension = [actualFileName pathExtension];
+
+            actualFileName = [actualFileName stringByDeletingPathExtension];
+            actualFileName = [actualFileName stringByAppendingFormat:@" %lu", (unsigned long)attempt];
+            if (extension.length) {
+                actualFileName = [actualFileName stringByAppendingPathExtension:extension];
+            }
+        }
+
+        NSString *filePath = [logsDirectory stringByAppendingPathComponent:actualFileName];
+
         if (![[NSFileManager defaultManager] fileExistsAtPath:filePath])
         {
-            NSLogVerbose(@"DDLogFileManagerDefault: Creating new log file: %@", fileName);
+            NSLogVerbose(@"DDLogFileManagerDefault: Creating new log file: %@", actualFileName);
 
             NSDictionary *attributes = nil;
 
@@ -471,6 +496,32 @@ BOOL doesAppRunInBackground(void);
         }
         
     } while(YES);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#pragma mark Utility
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+- (NSString *)applicationName
+{
+    static NSString *_appName;
+    static dispatch_once_t onceToken;
+
+    dispatch_once(&onceToken, ^{
+        _appName = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleIdentifier"];
+
+        if (! _appName)
+        {
+            _appName = [[NSProcessInfo processInfo] processName];
+        }
+
+        if (! _appName)
+        {
+            _appName = @"";
+        }
+    });
+
+    return _appName;
 }
 
 @end
@@ -864,22 +915,18 @@ BOOL doesAppRunInBackground(void);
         {
             DDLogFileInfo *mostRecentLogFileInfo = [sortedLogFileInfos objectAtIndex:0];
             
-            BOOL useExistingLogFile = YES;
             BOOL shouldArchiveMostRecent = NO;
             
             if (mostRecentLogFileInfo.isArchived)
             {
-                useExistingLogFile = NO;
                 shouldArchiveMostRecent = NO;
             }
             else if (maximumFileSize > 0 && mostRecentLogFileInfo.fileSize >= maximumFileSize)
             {
-                useExistingLogFile = NO;
                 shouldArchiveMostRecent = YES;
             }
             else if (rollingFrequency > 0.0 && mostRecentLogFileInfo.age >= rollingFrequency)
             {
-                useExistingLogFile = NO;
                 shouldArchiveMostRecent = YES;
             }
 
@@ -894,17 +941,16 @@ BOOL doesAppRunInBackground(void);
             // If previous log was created when app wasn't running in background, but now it is - we archive it and create
             // a new one.
 
-            if (useExistingLogFile && doesAppRunInBackground()) {
+            if (!_doNotReuseLogFiles && doesAppRunInBackground()) {
                 NSString *key = mostRecentLogFileInfo.fileAttributes[NSFileProtectionKey];
 
                 if (! [key isEqualToString:NSFileProtectionCompleteUntilFirstUserAuthentication]) {
-                    useExistingLogFile = NO;
                     shouldArchiveMostRecent = YES;
                 }
             }
         #endif
-            
-            if (useExistingLogFile)
+
+            if (!_doNotReuseLogFiles)
             {
                 NSLogVerbose(@"DDFileLogger: Resuming logging with file %@", mostRecentLogFileInfo.fileName);
                 
@@ -1211,17 +1257,24 @@ static int exception_count = 0;
         NSString *newFilePath = [fileDir stringByAppendingPathComponent:newFileName];
         
         NSLogVerbose(@"DDLogFileInfo: Renaming file: '%@' -> '%@'", self.fileName, newFileName);
-        
+
         NSError *error = nil;
+        if (![[NSFileManager defaultManager] fileExistsAtPath:newFilePath]){
+            if([[NSFileManager defaultManager] removeItemAtPath:newFilePath error:&error]){
+                NSLogError(@"DDLogFileInfo: Error deleting archive (%@): %@", self.fileName, error);
+            }
+        }
+
         if (![[NSFileManager defaultManager] moveItemAtPath:filePath toPath:newFilePath error:&error])
         {
             NSLogError(@"DDLogFileInfo: Error renaming file (%@): %@", self.fileName, error);
         }
-        
+
         filePath = newFilePath;
         [self reset];
     }
 }
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma mark Attribute Management
@@ -1238,35 +1291,29 @@ static int exception_count = 0;
     // This method is only used on the iPhone simulator, where normal extended attributes are broken.
     // See full explanation in the header file.
     
-    // Split the file name into components.
-    // 
-    // log-ABC123.archived.uploaded.txt
-    // 
-    // 0. log-ABC123
-    // 1. archived
-    // 2. uploaded
-    // 3. txt
-    // 
-    // So we want to search for the attrName in the components (ignoring the first and last array indexes).
+    // Split the file name into components. File name may have various format, but generally
+    // structure is same:
+    //
+    // <name part>.<extension part> and <name part>.archived.<extension part>
+    // or
+    // <name part> and <name part>.archived
+    //
+    // So we want to search for the attrName in the components (ignoring the first array index).
     
     NSArray *components = [[self fileName] componentsSeparatedByString:@"."];
     
     // Watch out for file names without an extension
-    
-    NSUInteger count = [components count];
-    NSUInteger max = (count >= 2) ? count-1 : count;
-    
-    NSUInteger i;
-    for (i = 1; i < max; i++)
+
+    for (NSUInteger i = 1; i < components.count; i++)
     {
         NSString *attr = [components objectAtIndex:i];
-        
+
         if ([attrName isEqualToString:attr])
         {
             return YES;
         }
     }
-    
+
     return NO;
 }
 
@@ -1279,9 +1326,10 @@ static int exception_count = 0;
     
     // Example:
     // attrName = "archived"
-    // 
-    // "log-ABC123.txt" -> "log-ABC123.archived.txt"
-    
+    //
+    // "mylog.txt" -> "mylog.archived.txt"
+    // "mylog"     -> "mylog.archived"
+
     NSArray *components = [[self fileName] componentsSeparatedByString:@"."];
     
     NSUInteger count = [components count];
@@ -1339,7 +1387,8 @@ static int exception_count = 0;
     // Example:
     // attrName = "archived"
     // 
-    // "log-ABC123.archived.txt" -> "log-ABC123.txt"
+    // "mylog.archived.txt" -> "mylog.txt"
+    // "mylog.archived"     -> "mylog"
     
     NSArray *components = [[self fileName] componentsSeparatedByString:@"."];
     
@@ -1403,7 +1452,10 @@ static int exception_count = 0;
     
     if (result < 0)
     {
-        NSLogError(@"DDLogFileInfo: setxattr(%s, %s): %s", path, name, strerror(errno));
+        NSLogError(@"DDLogFileInfo: setxattr(%s, %s): error = %s",
+                   path,
+                   name,
+                   strerror(errno));
     }
 }
 
@@ -1419,7 +1471,10 @@ static int exception_count = 0;
     
     if (result < 0 && errno != ENOATTR)
     {
-        NSLogError(@"DDLogFileInfo: removexattr(%s, %s): %s", path, name, strerror(errno));
+        NSLogError(@"DDLogFileInfo: removexattr(%s, %s): error = %s",
+                   path,
+                   name,
+                   strerror(errno));
     }
 }
 
