@@ -8,7 +8,7 @@
 // So we use primitive logging macros around NSLog.
 // We maintain the NS prefix on the macros to be explicit about the fact that we're using NSLog.
 
-#define LOG_LEVEL 4
+#define LOG_LEVEL 2
 
 #undef NSLogError
 #undef NSLogWarn
