@@ -250,8 +250,8 @@ BOOL doesAppRunInBackground(void);
     {
         NSUInteger lengthOfMiddle = fileName.length - appName.length - @".log".length;
 
-        // Date string should have at least 16 characters - " 2013-12-03 17-14"
-        if (lengthOfMiddle >= 17)
+        // Date string should have at least 19 characters - " 2013-12-03 17-14-59"
+        if (lengthOfMiddle >= 20)
         {
             NSRange range = NSMakeRange(appName.length, lengthOfMiddle);
 
@@ -262,9 +262,9 @@ BOOL doesAppRunInBackground(void);
             // Thats why here we can have three or four components. For details see createNewLogFile method.
             //
             // Components:
-            //     "", "2013-12-03", "17-14"
+            //     "", "2013-12-03", "17-14-59"
             // or
-            //     "", "2013-12-03", "17-14", "1"
+            //     "", "2013-12-03", "17-14-59", "1"
             if (components.count == 3 || components.count == 4)
             {
                 NSString *dateString = [NSString stringWithFormat:@"%@ %@", components[1], components[2]];
@@ -286,7 +286,7 @@ BOOL doesAppRunInBackground(void);
 - (NSDateFormatter *)logFileDateFormatter
 {
     NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
-    [dateFormatter setDateFormat:@"yyyy'-'MM'-'dd' 'HH'-'mm'"];
+    [dateFormatter setDateFormat:@"yyyy'-'MM'-'dd' 'HH'-'mm'-'ss'"];
     [dateFormatter setTimeZone:[NSTimeZone timeZoneForSecondsFromGMT:0]];
 
     return dateFormatter;
