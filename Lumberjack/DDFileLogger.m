@@ -950,7 +950,7 @@ BOOL doesAppRunInBackground(void);
             }
         #endif
 
-            if (!_doNotReuseLogFiles)
+            if (!_doNotReuseLogFiles && !mostRecentLogFileInfo.isArchived)
             {
                 NSLogVerbose(@"DDFileLogger: Resuming logging with file %@", mostRecentLogFileInfo.fileName);
                 
