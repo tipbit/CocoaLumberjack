@@ -1268,6 +1268,7 @@ static int exception_count = 0;
         if (![[NSFileManager defaultManager] moveItemAtPath:filePath toPath:newFilePath error:&error])
         {
             NSLogError(@"DDLogFileInfo: Error renaming file (%@): %@", self.fileName, error);
+            [[NSFileManager defaultManager] removeItemAtPath:[fileDir stringByAppendingPathComponent:self.fileName] error:&error];
         }
 
         filePath = newFilePath;
