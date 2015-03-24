@@ -205,6 +205,7 @@ typedef enum {
     DDFileLoggerRollStatusDoneDelegateCalled,
     DDFileLoggerRollStatusDoneDelegateNotCalled,
     DDFileLoggerRollStatusNoCurrentLogFileHandle,
+    DDFileLoggerRollStatusRefusedScreenLocked,
 } DDFileLoggerRollStatus;
 
 @interface DDFileLoggerMetrics : NSObject

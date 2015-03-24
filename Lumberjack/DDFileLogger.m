@@ -4,6 +4,9 @@
 #import <sys/attr.h>
 #import <sys/xattr.h>
 #import <libkern/OSAtomic.h>
+#if TARGET_OS_IPHONE
+#import <UIKit/UIApplication.h>
+#endif
 
 /**
  * Welcome to Cocoa Lumberjack!
@@ -838,6 +841,13 @@ BOOL doesAppRunInBackground(void);
 {
     NSLogVerbose(@"DDFileLogger: rollLogFileNow");
     
+#if TARGET_OS_IPHONE
+    if (![[UIApplication sharedApplication] isProtectedDataAvailable]) {
+        NSLogVerbose(@"Refusing to rotate log when isProtectedDataAvailable == NO");
+        return DDFileLoggerRollStatusRefusedScreenLocked;
+    }
+#endif
+
     if (currentLogFileHandle == nil) {
         return DDFileLoggerRollStatusNoCurrentLogFileHandle;
     }
@@ -1000,6 +1010,24 @@ BOOL doesAppRunInBackground(void);
         NSString *logFilePath = [[self currentLogFileInfo] filePath];
         
         currentLogFileHandle = [NSFileHandle fileHandleForWritingAtPath:logFilePath];
+#if TARGET_OS_IPHONE
+        if (!currentLogFileHandle && errno == ENOENT && doesAppRunInBackground() && [[UIApplication sharedApplication] isProtectedDataAvailable]) {
+            // On iOS, the screen (and therefore the protected data in the filesystem)
+            // may have been locked the last time we tried to create the log file.
+            // Try again now that it is unlocked.
+            NSLogVerbose(@"Failed to open %@ for writing, trying again with a new file.", logFilePath);
+            currentLogFileInfo = nil;
+            logFilePath = [[self currentLogFileInfo] filePath];
+            currentLogFileHandle = [NSFileHandle fileHandleForWritingAtPath:logFilePath];
+            if (currentLogFileHandle) {
+                NSLogVerbose(@"Retry was successful, we're now using %@.", logFilePath);
+            }
+            else {
+                NSLogVerbose(@"Retry was not successful.");
+            }
+        }
+#endif
+
         [currentLogFileHandle seekToEndOfFile];
         
         if (currentLogFileHandle)
