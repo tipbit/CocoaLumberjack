@@ -71,6 +71,9 @@
 **/
 @property (readwrite, assign, atomic) NSUInteger maximumNumberOfLogFiles;
 
+@property (atomic) NSDate * lastRotationStartDate;
+@property (atomic) NSDate * lastRotationEndDate;
+
 // Public methods
 
 - (NSString *)logsDirectory;
@@ -196,6 +199,31 @@
 #pragma mark -
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+
+typedef enum {
+    DDFileLoggerRollStatusUnknown = 0,
+    DDFileLoggerRollStatusDoneDelegateCalled,
+    DDFileLoggerRollStatusDoneDelegateNotCalled,
+    DDFileLoggerRollStatusNoCurrentLogFileHandle,
+} DDFileLoggerRollStatus;
+
+@interface DDFileLoggerMetrics : NSObject
+
+@property (nonatomic) NSDate * lastRotationStartDate;
+@property (nonatomic) NSDate * lastRotationEndDate;
+
+@property (nonatomic) DDFileLoggerRollStatus rollStatus;
+
+/**
+ * @param DDLogFileInfo array.
+ */
+@property (nonatomic) NSArray * sortedLogFileInfos;
+
+@end
+
+typedef void (^DDFileLoggerMetricsBlock)(DDFileLoggerMetrics * metrics);
+
+
 @interface DDFileLogger : DDAbstractLogger <DDLogger>
 {
     __strong id <DDLogFileManager> logFileManager;
@@ -260,7 +288,7 @@
 // You can optionally force the current log file to be rolled with this method.
 // CompletionBlock will be called on main queue.
 
-- (void)rollLogFileWithCompletionBlock:(void (^)())completionBlock;
+- (void)rollLogFileWithCompletionBlock:(DDFileLoggerMetricsBlock)completionBlock;
 
 // Method is deprecated. Use rollLogFileWithCompletionBlock: method instead.
 

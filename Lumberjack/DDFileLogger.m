@@ -43,7 +43,7 @@
 
 @interface DDFileLogger (PrivateAPI)
 
-- (void)rollLogFileNow;
+- (DDFileLoggerRollStatus)rollLogFileNow;
 - (void)maybeRollLogFileDueToAge;
 - (void)maybeRollLogFileDueToSize;
 
@@ -60,6 +60,8 @@ BOOL doesAppRunInBackground(void);
 @implementation DDLogFileManagerDefault
 
 @synthesize maximumNumberOfLogFiles;
+@synthesize lastRotationStartDate;
+@synthesize lastRotationEndDate;
 
 - (id)init
 {
@@ -791,7 +793,7 @@ BOOL doesAppRunInBackground(void);
     [self rollLogFileWithCompletionBlock:nil];
 }
 
-- (void)rollLogFileWithCompletionBlock:(void (^)())completionBlock
+- (void)rollLogFileWithCompletionBlock:(DDFileLoggerMetricsBlock)completionBlock
 {
     // This method is public.
     // We need to execute the rolling on our logging thread/queue.
@@ -799,12 +801,17 @@ BOOL doesAppRunInBackground(void);
     __weak DDFileLogger *weakSelf = self;
     dispatch_block_t block = ^{ @autoreleasepool {
         
-        [weakSelf rollLogFileNow];
+        DDFileLoggerRollStatus rollStatus = [weakSelf rollLogFileNow];
 
         if (completionBlock)
         {
+            DDFileLoggerMetrics * metrics = [[DDFileLoggerMetrics alloc] init];
+            metrics.lastRotationStartDate = logFileManager.lastRotationStartDate;
+            metrics.lastRotationEndDate = logFileManager.lastRotationEndDate;
+            metrics.rollStatus = rollStatus;
+            metrics.sortedLogFileInfos = logFileManager.sortedLogFileInfos;
             dispatch_async(dispatch_get_main_queue(), ^{
-                completionBlock();
+                completionBlock(metrics);
             });
         }
     }};
@@ -827,22 +834,25 @@ BOOL doesAppRunInBackground(void);
     }
 }
 
-- (void)rollLogFileNow
+- (DDFileLoggerRollStatus)rollLogFileNow
 {
     NSLogVerbose(@"DDFileLogger: rollLogFileNow");
     
-    
-    if (currentLogFileHandle == nil) return;
+    if (currentLogFileHandle == nil) {
+        return DDFileLoggerRollStatusNoCurrentLogFileHandle;
+    }
     
     [currentLogFileHandle synchronizeFile];
     [currentLogFileHandle closeFile];
     currentLogFileHandle = nil;
     
     currentLogFileInfo.isArchived = YES;
-    
+
+    BOOL delegateWasCalled = NO;
     if ([logFileManager respondsToSelector:@selector(didRollAndArchiveLogFile:)])
     {
         [logFileManager didRollAndArchiveLogFile:(currentLogFileInfo.filePath)];
+        delegateWasCalled = YES;
     }
     
     currentLogFileInfo = nil;
@@ -857,6 +867,8 @@ BOOL doesAppRunInBackground(void);
         dispatch_source_cancel(rollingTimer);
         rollingTimer = NULL;
     }
+
+    return delegateWasCalled ? DDFileLoggerRollStatusDoneDelegateCalled : DDFileLoggerRollStatusDoneDelegateNotCalled;
 }
 
 - (void)maybeRollLogFileDueToAge
@@ -1556,3 +1568,7 @@ BOOL doesAppRunInBackground()
 }
 #endif
 
+
+@implementation DDFileLoggerMetrics
+
+@end
